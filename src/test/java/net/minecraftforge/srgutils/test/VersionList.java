@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -46,7 +45,7 @@ public class VersionList {
     @Test
     void testSort() throws IOException, URISyntaxException {
         List<String> versions = Files
-            .readAllLines(Paths.get(VersionList.class.getResource("/versions.csv").toURI()))
+            .readAllLines(TestData.get("/versions.csv"))
             .stream()
             .filter(line -> !line.startsWith("#"))
             .collect(Collectors.toList());

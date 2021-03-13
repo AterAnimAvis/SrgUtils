@@ -20,26 +20,66 @@
 package net.minecraftforge.srgutils.test;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Paths;
-import org.junit.jupiter.api.Test;
+import java.net.URISyntaxException;
+import java.nio.file.FileSystem;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Locale;
+
+import com.google.common.jimfs.Configuration;
+import com.google.common.jimfs.Jimfs;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import net.minecraftforge.srgutils.IMappingFile;
 import net.minecraftforge.srgutils.IMappingFile.Format;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class MappingTest {
 
-    InputStream getStream(String name) {
-        return MappingTest.class.getClassLoader().getResourceAsStream(name);
+    private static IMappingFile pg;
+    private static IMappingFile reverse;
+
+    @BeforeAll
+    static void setup() throws IOException {
+        pg = IMappingFile.load(TestData.getStream("/installer/input.pg"));
+        reverse = pg.reverse();
     }
 
-    @Test
-    void test() throws IOException {
-        IMappingFile pg = IMappingFile.load(getStream("./installer.pg"));
-        IMappingFile reverse = pg.reverse();
-        for (Format f : Format.values()) {
-            pg.write(Paths.get("./build/installer_out." + f.name().toLowerCase()), f, false);
-            reverse.write(Paths.get("./build/installer_out_rev." + f.name().toLowerCase()), f, false);
+    @AfterAll
+    static void teardown() {
+        pg = null;
+        reverse = null;
+    }
+
+    @ParameterizedTest
+    @EnumSource(Format.class)
+    void test(Format format) throws IOException, URISyntaxException {
+        String filetype = format.name().toLowerCase(Locale.ROOT);
+
+        try (FileSystem memoryFS = Jimfs.newFileSystem("memory", Configuration.unix())) {
+            compare(
+                pg,
+                format,
+                TestData.get("/installer/expected." + filetype),
+                memoryFS.getPath("./output." + filetype)
+            );
+
+            compare(
+                reverse,
+                format,
+                TestData.get("/installer/expected." + filetype + "-rev"),
+                memoryFS.getPath("./output." + filetype + "-rev")
+            );
         }
     }
+
+    static void compare(IMappingFile file, Format format, Path expected, Path output) throws IOException {
+        file.write(output, format, false);
+        assertEquals(Files.readAllLines(expected), Files.readAllLines(output));
+    }
+
 }
